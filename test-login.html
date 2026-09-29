@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Login DIGI-ARTIK API</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      color: #1f2937;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 450px;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08);
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 13px;
+      border: 0;
+      border-radius: 8px;
+      background: #0d6efd;
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    pre {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 70px;
+    }
+
+    .warning {
+      margin-top: 18px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #fff3cd;
+      color: #664d03;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>🔐 LOGIN DIGI-ARTIK</h2>
+    <div class="subtitle">Pengujian API Login</div>
+
+    <label for="nip">NIP</label>
+    <input
+      type="text"
+      id="nip"
+      placeholder="Masukkan NIP"
+      autocomplete="username"
+    >
+
+    <label for="password">Password</label>
+    <input
+      type="password"
+      id="password"
+      placeholder="Masukkan password"
+      autocomplete="current-password"
+    >
+
+    <button id="btnLogin" onclick="loginAPI()">
+      🔑 TEST LOGIN
+    </button>
+
+    <pre id="hasil">Belum ada hasil...</pre>
+
+    <div class="warning">
+      ⚠️ Halaman ini hanya untuk pengujian API. Jangan memasukkan password ke
+      tempat lain atau membagikan hasil login kepada orang lain.
+    </div>
+  </div>
+
+  <script>
+
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycbxvPVLbYt7H6Gdlz064k2HRBu6uhz4T1-3TbLiL-plc3eOCquoZ56XMYBYkLH5E9bQokQ/exec';
+
+    async function loginAPI() {
+
+      const nip = document.getElementById('nip').value.trim();
+      const password = document.getElementById('password').value;
+      const hasil = document.getElementById('hasil');
+      const btn = document.getElementById('btnLogin');
+
+      if (!nip || !password) {
+        hasil.textContent = '⚠️ NIP dan password wajib diisi.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses...';
+      hasil.textContent = '⏳ Menghubungkan ke API LOGIN...';
+
+      try {
+
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify({
+            action: 'login',
+            nip: nip,
+            password: password
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          hasil.textContent =
+            '✅ LOGIN BERHASIL\n\n' +
+            JSON.stringify(data, null, 2);
+        } else {
+          hasil.textContent =
+            '❌ LOGIN DITOLAK\n\n' +
+            JSON.stringify(data, null, 2);
+        }
+
+      } catch (error) {
+
+        hasil.textContent =
+          '❌ API ERROR\n\n' +
+          error.message +
+          '\n\nPeriksa Console Browser (F12) untuk detail error.';
+
+        console.error('DIGI-ARTIK LOGIN API ERROR:', error);
+
+      } finally {
+
+        btn.disabled = false;
+        btn.textContent = '🔑 TEST LOGIN';
+
+      }
+    }
+
+    document.getElementById('password').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        loginAPI();
+      }
+    });
+
+  </script>
+
+</body>
+</html>
