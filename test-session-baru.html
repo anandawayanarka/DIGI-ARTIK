@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DIGI-ARTIK Session Test</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f5f7fa;padding:25px}
+.card{max-width:700px;margin:30px auto;background:#fff;padding:25px;border-radius:14px;box-shadow:0 8px 25px rgba(0,0,0,.08)}
+input{width:100%;box-sizing:border-box;padding:11px;margin:6px 0 12px;border:1px solid #ccc;border-radius:8px}
+button{padding:11px 16px;margin:5px 4px 5px 0;border:0;border-radius:8px;background:#0d6efd;color:#fff;cursor:pointer}
+button.secondary{background:#6c757d}
+pre{background:#f8f9fa;padding:15px;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+.small{font-size:12px;color:#666;word-break:break-all;margin-top:15px}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>🔐 DIGI-ARTIK SESSION TEST</h2>
+
+<label>NIP</label>
+<input id="nip" placeholder="NIP" autocomplete="username">
+
+<label>Password</label>
+<input id="password" type="password" placeholder="Password" autocomplete="current-password">
+
+<button onclick="login()">🔑 LOGIN + TOKEN</button>
+<button class="secondary" onclick="checkSession()">🔎 CHECK SESSION</button>
+<button class="secondary" onclick="logout()">🚪 LOGOUT</button>
+
+<div class="small">
+API yang sedang diuji:<br>
+https://script.google.com/macros/s/AKfycbzWA0dSkL-681hb3M2oUUvdzEKilAmdXpcusj70P03koTbqO2ZuSt_O4lkIy28NQbYB_A/exec
+</div>
+
+<pre id="hasil">Belum ada hasil...</pre>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbzWA0dSkL-681hb3M2oUUvdzEKilAmdXpcusj70P03koTbqO2ZuSt_O4lkIy28NQbYB_A/exec';
+let token = localStorage.getItem('DIGI_ARTIK_TOKEN') || '';
+
+async function api(body) {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify(body)
+  });
+
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(
+      'Respons API bukan JSON. HTTP ' +
+      response.status + ': ' + text.substring(0, 500)
+    );
+  }
+}
+
+async function login() {
+  const hasil = document.getElementById('hasil');
+
+  try {
+    hasil.textContent = '⏳ Login...';
+
+    const data = await api({
+      action: 'login',
+      nip: document.getElementById('nip').value.trim(),
+      password: document.getElementById('password').value
+    });
+
+    if (data.success && data.token) {
+      token = data.token;
+      localStorage.setItem('DIGI_ARTIK_TOKEN', token);
+    }
+
+    hasil.textContent = JSON.stringify(data, null, 2);
+
+  } catch (e) {
+    hasil.textContent = '❌ LOGIN ERROR\n\n' + e.message;
+  }
+}
+
+async function checkSession() {
+  const hasil = document.getElementById('hasil');
+
+  if (!token) {
+    hasil.textContent = '⚠️ Belum ada token. Silakan LOGIN dahulu.';
+    return;
+  }
+
+  try {
+    hasil.textContent = '⏳ Mengecek session...';
+
+    const data = await api({
+      action: 'checkSession',
+      token: token
+    });
+
+    hasil.textContent = JSON.stringify(data, null, 2);
+
+  } catch (e) {
+    hasil.textContent = '❌ CHECK SESSION ERROR\n\n' + e.message;
+  }
+}
+
+async function logout() {
+  const hasil = document.getElementById('hasil');
+
+  if (!token) {
+    hasil.textContent = '⚠️ Belum ada token.';
+    return;
+  }
+
+  try {
+    hasil.textContent = '⏳ Logout...';
+
+    const data = await api({
+      action: 'logout',
+      token: token
+    });
+
+    token = '';
+    localStorage.removeItem('DIGI_ARTIK_TOKEN');
+
+    hasil.textContent = JSON.stringify(data, null, 2);
+
+  } catch (e) {
+    hasil.textContent = '❌ LOGOUT ERROR\n\n' + e.message;
+  }
+}
+</script>
+</body>
+</html>
