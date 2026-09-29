@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DIGI-ARTIK API Test - Deployment Baru</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f9;padding:24px}
+.card{max-width:760px;margin:30px auto;background:#fff;padding:24px;border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.08)}
+h2{margin-top:0}
+label{display:block;margin-top:12px;font-weight:600}
+input{width:100%;box-sizing:border-box;padding:12px;margin:6px 0 12px;border:1px solid #ccd3da;border-radius:9px}
+button{padding:11px 15px;margin:5px 5px 5px 0;border:0;border-radius:9px;background:#0d6efd;color:#fff;cursor:pointer}
+button.secondary{background:#6c757d}
+button.success{background:#198754}
+button.danger{background:#dc3545}
+pre{background:#f7f8fa;padding:15px;border-radius:10px;white-space:pre-wrap;word-break:break-word;min-height:120px}
+.status{font-size:13px;color:#666;margin-bottom:16px;word-break:break-all}
+.token{font-size:12px;color:#555;word-break:break-all;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>🔌 DIGI-ARTIK API TEST</h2>
+
+  <div class="status">
+    <b>Deployment yang diuji:</b><br>
+    https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec
+  </div>
+
+  <label>NIP</label>
+  <input id="nip" placeholder="Masukkan NIP" autocomplete="username">
+
+  <label>Password</label>
+  <input id="password" type="password" placeholder="Masukkan password" autocomplete="current-password">
+
+  <div>
+    <button onclick="testVersi()">🧪 TEST VERSI</button>
+    <button onclick="login()">🔑 LOGIN + TOKEN</button>
+    <button class="secondary" onclick="getProfile()">👤 GET PROFILE</button>
+    <button class="secondary" onclick="checkSession()">🔎 CHECK SESSION</button>
+    <button class="danger" onclick="logout()">🚪 LOGOUT</button>
+  </div>
+
+  <div class="token" id="tokenInfo">Token: belum ada</div>
+  <pre id="hasil">Belum ada hasil...</pre>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec';
+let token = localStorage.getItem("DIGI_ARTIK_TOKEN") || "";
+
+function tampilToken() {
+  document.getElementById("tokenInfo").textContent =
+    token ? "Token tersimpan: " + token.substring(0, 20) + "..." : "Token: belum ada";
+}
+
+tampilToken();
+
+async function api(body) {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify(body)
+  });
+
+  const raw = await response.text();
+
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(
+      "Respons API bukan JSON. HTTP " +
+      response.status + ": " +
+      raw.substring(0, 500)
+    );
+  }
+}
+
+async function testVersi() {
+  const hasil = document.getElementById("hasil");
+  try {
+    hasil.textContent = "⏳ Menguji deployment...";
+    const data = await api({ action: "versi" });
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ TEST VERSI ERROR\n\n" + e.message;
+  }
+}
+
+async function login() {
+  const hasil = document.getElementById("hasil");
+  try {
+    hasil.textContent = "⏳ Login...";
+    const data = await api({
+      action: "login",
+      nip: document.getElementById("nip").value.trim(),
+      password: document.getElementById("password").value
+    });
+
+    if (data.success && data.token) {
+      token = data.token;
+      localStorage.setItem("DIGI_ARTIK_TOKEN", token);
+      tampilToken();
+    }
+
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ LOGIN ERROR\n\n" + e.message;
+  }
+}
+
+async function getProfile() {
+  const hasil = document.getElementById("hasil");
+
+  if (!token) {
+    hasil.textContent = "⚠️ Token belum ada. Silakan LOGIN dahulu.";
+    return;
+  }
+
+  try {
+    hasil.textContent = "⏳ Mengambil profile...";
+    const data = await api({
+      action: "getProfile",
+      token: token
+    });
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ GET PROFILE ERROR\n\n" + e.message;
+  }
+}
+
+async function checkSession() {
+  const hasil = document.getElementById("hasil");
+
+  if (!token) {
+    hasil.textContent = "⚠️ Token belum ada. Silakan LOGIN dahulu.";
+    return;
+  }
+
+  try {
+    hasil.textContent = "⏳ Mengecek session...";
+    const data = await api({
+      action: "checkSession",
+      token: token
+    });
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ CHECK SESSION ERROR\n\n" + e.message;
+  }
+}
+
+async function logout() {
+  const hasil = document.getElementById("hasil");
+
+  if (!token) {
+    hasil.textContent = "⚠️ Token belum ada.";
+    return;
+  }
+
+  try {
+    hasil.textContent = "⏳ Logout...";
+    const data = await api({
+      action: "logout",
+      token: token
+    });
+
+    token = "";
+    localStorage.removeItem("DIGI_ARTIK_TOKEN");
+    tampilToken();
+
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ LOGOUT ERROR\n\n" + e.message;
+  }
+}
+</script>
+</body>
+</html>
