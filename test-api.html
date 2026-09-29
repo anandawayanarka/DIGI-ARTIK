@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test DIGI-ARTIK API</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background: #f5f7fa;
+      color: #1f2937;
+    }
+
+    .card {
+      max-width: 700px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08);
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    button {
+      padding: 12px 20px;
+      border: 0;
+      border-radius: 8px;
+      background: #0d6efd;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: .9;
+    }
+
+    pre {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 80px;
+    }
+
+    .url {
+      font-size: 12px;
+      color: #6b7280;
+      word-break: break-all;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>🔌 DIGI-ARTIK API TEST</h2>
+
+    <p>Halaman ini digunakan untuk menguji koneksi GitHub Pages → Google Apps Script.</p>
+
+    <div class="url">
+      API:
+      https://script.google.com/macros/s/AKfycbxvPVLbYt7H6Gdlz064k2HRBu6uhz4T1-3TbLiL-plc3eOCquoZ56XMYBYkLH5E9bQokQ/exec
+    </div>
+
+    <button onclick="testAPI()">🚀 TEST API</button>
+
+    <pre id="hasil">Belum ada hasil...</pre>
+  </div>
+
+  <script>
+
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycbxvPVLbYt7H6Gdlz064k2HRBu6uhz4T1-3TbLiL-plc3eOCquoZ56XMYBYkLH5E9bQokQ/exec';
+
+    async function testAPI() {
+
+      const hasil = document.getElementById('hasil');
+
+      hasil.textContent = '⏳ Menghubungkan ke DIGI-ARTIK API...';
+
+      try {
+
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify({
+            action: 'ping'
+          })
+        });
+
+        const data = await response.json();
+
+        hasil.textContent =
+          '✅ API BERHASIL TERHUBUNG\n\n' +
+          JSON.stringify(data, null, 2);
+
+      } catch (error) {
+
+        hasil.textContent =
+          '❌ API ERROR\n\n' +
+          error.message +
+          '\n\nPeriksa Console Browser (F12) untuk detail error.';
+
+        console.error('DIGI-ARTIK API ERROR:', error);
+      }
+    }
+
+  </script>
+
+</body>
+</html>
