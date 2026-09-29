@@ -1,44 +1,1252 @@
+Edit
+Teks yang ditempel (1)(3).txt
+Dokumen
+ini index.html nya
+Kode yang ditempelkan (1)(3).js
+JavaScript
+Teks yang ditempel (2).txt
+Dokumen
+Teks yang ditempel (1)(4).txt
+Dokumen
+Kode yang ditempelkan (2)(1).js
+JavaScript
+ini index dan code yang sekarang yang sudah ada sistem kartu anggota tadi
+Teks yang ditempel (1)(5).txt
+Dokumen
+Teks yang ditempel (2)(1).txt
+Dokumen
+Kode yang ditempelkan (1)(4).js
+JavaScript
+ini
+
+Oke, berarti getProfile belum dikenali oleh doPost() yang sedang aktif di deployment. Jangan ubah yang lain dulu. Kita cek dengan cara paling aman.
+
+Kemungkinan besar kita menambahkan fungsi getProfile, tetapi belum masuk ke doPost(), atau masuk tetapi posisinya salah.
+
+1. Cari bagian doPost(e)
+
+Di Code.gs, cari:
+
+function doPost(e) {
+
+Di dalamnya harus ada bagian seperti ini:
+
+const action = String(request.action || '').trim();
+
+Lalu cari:
+
+if (action === 'checkSession') {
+
+Tepat setelah blok checkSession selesai, tambahkan:
+
+if (action === 'getProfile') {
+  const token = String(request.token || '').trim();
+
+  const session = validasiSessionToken(token);
+
+  if (!session.valid) {
+    return apiResponse({
+      success: false,
+      authenticated: false,
+      message: session.message
+    });
+  }
+
+  return apiResponse({
+    success: true,
+    authenticated: true,
+    user: session.user
+  });
+}
+2. Pastikan whitelist juga ada
+
+Cari di doPost:
+
+const allowedActions = [
+
+Kalau sekarang:
+
+const allowedActions = [
+  'ping',
+  'login',
+  'checkSession',
+  'logout',
+  'versi'
+];
+
+ganti menjadi:
+
+const allowedActions = [
+  'ping',
+  'login',
+  'checkSession',
+  'getProfile',
+  'logout',
+  'versi'
+];
+3. Yang sangat penting: jangan buat function getProfile()
+
+Kita tidak perlu membuat:
+
+function getProfile() {
+}
+
+Karena yang kita buat adalah API action:
+
+action: "getProfile"
+
+yang ditangani oleh:
+
+doPost(e)
+
+Jadi jangan sampai ada kebingungan antara fungsi Apps Script dan action API.
+
+4. Cek posisi getProfile
+
+Struktur doPost harus kira-kira seperti ini:
+
+function doPost(e) {
+  try {
+
+    const request = JSON.parse(e.postData.contents || '{}');
+    const action = String(request.action || '').trim();
+
+    const allowedActions = [
+      'ping',
+      'login',
+      'checkSession',
+      'getProfile',
+      'logout',
+      'versi'
+    ];
+
+    if (!allowedActions.includes(action)) {
+      return apiResponse({
+        success: false,
+        message: 'Action tidak dikenal: ' + action
+      });
+    }
+
+    // LOGIN
+    if (action === 'login') {
+      // ...
+    }
+
+    // CHECK SESSION
+    if (action === 'checkSession') {
+      // ...
+    }
+
+    // GET PROFILE
+    if (action === 'getProfile') {
+      const token = String(request.token || '').trim();
+
+      const session = validasiSessionToken(token);
+
+      if (!session.valid) {
+        return apiResponse({
+          success: false,
+          authenticated: false,
+          message: session.message
+        });
+      }
+
+      return apiResponse({
+        success: true,
+        authenticated: true,
+        user: session.user
+      });
+    }
+
+    // LOGOUT
+    if (action === 'logout') {
+      // ...
+    }
+
+    // VERSI
+    if (action === 'versi') {
+      // ...
+    }
+
+  } catch (err) {
+    return apiResponse({
+      success: false,
+      message: err.message
+    });
+  }
+}
+5. Setelah itu
+
+Save → Deploy → Manage deployments → Edit → New version → Deploy.
+
+Lalu buka kembali:
+
+test-profile-digi-artik.html
+
+Urutannya:
+
+LOGIN → GET PROFILE
+
+Kalau masih muncul:
+
+Action tidak dikenal: getProfile
+
+jangan utak-atik lagi. Kirim/screenshot bagian doPost(e) lengkap dari Code.gs ke saya. Saya akan tunjukkan persis di bagian mana getProfile harus ditempel, supaya kita tidak mengulang masalah deployment sebelumnya.
+
+Coba buat ulang struktur doPost yang benar versi sekarang
+
+Bisa. Saya cek ulang struktur Code.gs yang tersimpan sekarang. Versi file tersebut belum memiliki doPost(e) yang menjadi gateway API, jadi kita sebaiknya pasang satu doPost(e) utama yang menjadi pintu masuk semua request dari GitHub Pages.
+
+Karena fungsi-fungsi lama seperti loginUser(), submitPeminjaman(), getKartuSaya(), getDashboardAdmin(), dan lainnya sudah ada, jangan kita ubah fungsi-fungsi tersebut. Kita hanya tambahkan API Gateway di bagian bawah Code.gs.
+
+1. Tambahkan doPost(e) versi sekarang
+
+Cari bagian paling bawah Code.gs, lalu tempel kode ini:
+
+// =====================================================
+// API GATEWAY - DIGI-ARTIK
+// GitHub Pages → Google Apps Script
+// =====================================================
+
+function doPost(e) {
+
+  try {
+
+    // ==========================================
+    // 1. CEK REQUEST
+    // ==========================================
+
+    if (!e || !e.postData || !e.postData.contents) {
+
+      return apiResponse({
+        success: false,
+        message: 'Request API tidak ditemukan.'
+      });
+
+    }
+
+
+    // ==========================================
+    // 2. PARSE JSON
+    // ==========================================
+
+    let request;
+
+    try {
+
+      request = JSON.parse(
+        e.postData.contents
+      );
+
+    } catch (err) {
+
+      return apiResponse({
+        success: false,
+        message: 'Format request harus JSON.'
+      });
+
+    }
+
+
+    // ==========================================
+    // 3. AMBIL ACTION
+    // ==========================================
+
+    const action =
+      String(request.action || '')
+        .trim();
+
+
+    if (!action) {
+
+      return apiResponse({
+        success: false,
+        message: 'Action API belum ditentukan.'
+      });
+
+    }
+
+
+    // ==========================================
+    // 4. API VERSI
+    // Digunakan untuk memastikan deployment
+    // ==========================================
+
+    if (action === 'versi') {
+
+      return apiResponse({
+
+        success: true,
+
+        api: 'DIGI-ARTIK',
+
+        version: '2.0',
+
+        message: 'API Gateway DIGI-ARTIK aktif.',
+
+        timestamp: new Date().toISOString()
+
+      });
+
+    }
+
+
+    // ==========================================
+    // 5. LOGIN
+    // ==========================================
+
+    if (action === 'login') {
+
+      const nip =
+        String(request.nip || '').trim();
+
+      const password =
+        String(request.password || '');
+
+
+      if (!nip || !password) {
+
+        return apiResponse({
+
+          success: false,
+
+          message:
+            'NIP dan password wajib diisi.'
+
+        });
+
+      }
+
+
+      const result =
+        loginUser(
+          nip,
+          password
+        );
+
+
+      if (!result || !result.success) {
+
+        return apiResponse(
+          result || {
+            success: false,
+            message: 'Login gagal.'
+          }
+        );
+
+      }
+
+
+      // Buat session token
+      const token =
+        buatSessionToken(
+          result.user
+        );
+
+
+      return apiResponse({
+
+        success: true,
+
+        message: 'Login berhasil.',
+
+        token: token,
+
+        expiresIn:
+          API_SESSION_EXPIRE_SECONDS,
+
+        user: result.user
+
+      });
+
+    }
+
+
+    // ==========================================
+    // 6. CHECK SESSION
+    // ==========================================
+
+    if (action === 'checkSession') {
+
+      const token =
+        String(request.token || '').trim();
+
+
+      const session =
+        validasiSessionToken(token);
+
+
+      if (!session.valid) {
+
+        return apiResponse({
+
+          success: false,
+
+          authenticated: false,
+
+          message:
+            session.message
+
+        });
+
+      }
+
+
+      return apiResponse({
+
+        success: true,
+
+        authenticated: true,
+
+        user: session.user
+
+      });
+
+    }
+
+
+    // ==========================================
+    // 7. GET PROFILE
+    // ==========================================
+
+    if (action === 'getProfile') {
+
+      const token =
+        String(request.token || '').trim();
+
+
+      const session =
+        validasiSessionToken(token);
+
+
+      if (!session.valid) {
+
+        return apiResponse({
+
+          success: false,
+
+          authenticated: false,
+
+          message:
+            session.message
+
+        });
+
+      }
+
+
+      return apiResponse({
+
+        success: true,
+
+        authenticated: true,
+
+        user: session.user
+
+      });
+
+    }
+
+
+    // ==========================================
+    // 8. LOGOUT
+    // ==========================================
+
+    if (action === 'logout') {
+
+      const token =
+        String(request.token || '').trim();
+
+
+      if (!token) {
+
+        return apiResponse({
+
+          success: false,
+
+          message:
+            'Token session tidak ditemukan.'
+
+        });
+
+      }
+
+
+      hapusSessionToken(token);
+
+
+      return apiResponse({
+
+        success: true,
+
+        authenticated: false,
+
+        message:
+          'Logout berhasil.'
+
+      });
+
+    }
+
+
+    // ==========================================
+    // 9. ACTION YANG MEMERLUKAN LOGIN
+    // ==========================================
+
+    const protectedActions = [
+
+      'getKartuSaya',
+
+      'getDashboardAdmin',
+
+      'getDaftarPinjam',
+
+      'getPilihanNamaArsip',
+
+      'getKartuByIdPeminjaman',
+
+      'submitPeminjaman'
+
+    ];
+
+
+    if (
+      protectedActions.includes(action)
+    ) {
+
+      const token =
+        String(request.token || '').trim();
+
+
+      const session =
+        validasiSessionToken(token);
+
+
+      if (!session.valid) {
+
+        return apiResponse({
+
+          success: false,
+
+          authenticated: false,
+
+          message:
+            session.message
+
+        });
+
+      }
+
+
+      // ========================================
+      // GET KARTU SAYA
+      // ========================================
+
+      if (action === 'getKartuSaya') {
+
+        const result =
+          getKartuSaya(
+            session.user.nip
+          );
+
+        return apiResponse(result);
+
+      }
+
+
+      // ========================================
+      // DASHBOARD ADMIN
+      // ========================================
+
+      if (action === 'getDashboardAdmin') {
+
+        if (
+          String(session.user.role)
+            .toLowerCase() !== 'admin'
+        ) {
+
+          return apiResponse({
+
+            success: false,
+
+            message:
+              'Akses hanya untuk admin.'
+
+          });
+
+        }
+
+
+        const result =
+          getDashboardAdmin();
+
+        return apiResponse(result);
+
+      }
+
+
+      // ========================================
+      // DAFTAR PEMINJAMAN
+      // ========================================
+
+      if (action === 'getDaftarPinjam') {
+
+        if (
+          String(session.user.role)
+            .toLowerCase() !== 'admin'
+        ) {
+
+          return apiResponse({
+
+            success: false,
+
+            message:
+              'Akses hanya untuk admin.'
+
+          });
+
+        }
+
+
+        const result =
+          getDaftarPinjam();
+
+        return apiResponse({
+
+          success: true,
+
+          data: result
+
+        });
+
+      }
+
+
+      // ========================================
+      // PILIHAN NAMA ARSIP
+      // ========================================
+
+      if (
+        action ===
+        'getPilihanNamaArsip'
+      ) {
+
+        const kategori =
+          String(
+            request.kategori || ''
+          ).trim();
+
+
+        const result =
+          getPilihanNamaArsip(
+            kategori
+          );
+
+        return apiResponse(result);
+
+      }
+
+
+      // ========================================
+      // KARTU PUBLIK / DETAIL KARTU
+      // ========================================
+
+      if (
+        action ===
+        'getKartuByIdPeminjaman'
+      ) {
+
+        const idPeminjaman =
+          String(
+            request.idPeminjaman || ''
+          ).trim();
+
+
+        const result =
+          getKartuByIdPeminjaman(
+            idPeminjaman
+          );
+
+        return apiResponse(result);
+
+      }
+
+
+      // ========================================
+      // SUBMIT PEMINJAMAN
+      // ========================================
+
+      if (
+        action ===
+        'submitPeminjaman'
+      ) {
+
+        // Pakai identitas dari session,
+        // bukan identitas yang dikirim frontend.
+
+        const payload =
+          request.payload || {};
+
+
+        payload.nip =
+          session.user.nip;
+
+        payload.nama =
+          session.user.nama;
+
+        payload.jabatan =
+          session.user.jabatan;
+
+
+        const result =
+          submitPeminjaman(
+            payload
+          );
+
+
+        return apiResponse(result);
+
+      }
+
+    }
+
+
+    // ==========================================
+    // ACTION TIDAK DIKENAL
+    // ==========================================
+
+    return apiResponse({
+
+      success: false,
+
+      message:
+        'Action API tidak dikenali: ' +
+        action
+
+    });
+
+
+  } catch (err) {
+
+    // ==========================================
+    // ERROR GLOBAL
+    // ==========================================
+
+    return apiResponse({
+
+      success: false,
+
+      message:
+        'API Error: ' +
+        err.message
+
+    });
+
+  }
+
+}
+2. Tambahkan fungsi session
+
+Karena doPost() di atas menggunakan fungsi session, tempelkan tepat di bawah doPost():
+
+// =====================================================
+// SESSION MANAGEMENT
+// =====================================================
+
+const API_SESSION_EXPIRE_SECONDS =
+  8 * 60 * 60;
+
+
+// =====================================================
+// BUAT SESSION TOKEN
+// =====================================================
+
+function buatSessionToken(user) {
+
+  const token =
+    Utilities.getUuid().replace(/-/g, '') +
+    Utilities.getUuid().replace(/-/g, '');
+
+
+  const tokenKey =
+    hashSessionToken(token);
+
+
+  const now =
+    Date.now();
+
+
+  const sessionData = {
+
+    nip:
+      String(user.nip || '').trim(),
+
+    nama:
+      String(user.nama || ''),
+
+    jabatan:
+      String(user.jabatan || ''),
+
+    role:
+      String(user.role || ''),
+
+    createdAt:
+      now,
+
+    expiresAt:
+      now +
+      (
+        API_SESSION_EXPIRE_SECONDS *
+        1000
+      )
+
+  };
+
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+
+      'DIGI_SESSION_' +
+      tokenKey,
+
+      JSON.stringify(
+        sessionData
+      )
+
+    );
+
+
+  return token;
+
+}
+
+
+// =====================================================
+// VALIDASI SESSION TOKEN
+// =====================================================
+
+function validasiSessionToken(token) {
+
+  if (!token) {
+
+    return {
+
+      valid: false,
+
+      message:
+        'Token session tidak ditemukan.'
+
+    };
+
+  }
+
+
+  const tokenKey =
+    hashSessionToken(token);
+
+
+  const propertyKey =
+    'DIGI_SESSION_' +
+    tokenKey;
+
+
+  const raw =
+    PropertiesService
+      .getScriptProperties()
+      .getProperty(
+        propertyKey
+      );
+
+
+  if (!raw) {
+
+    return {
+
+      valid: false,
+
+      message:
+        'Session tidak valid atau sudah berakhir.'
+
+    };
+
+  }
+
+
+  let session;
+
+
+  try {
+
+    session =
+      JSON.parse(raw);
+
+  } catch (err) {
+
+    PropertiesService
+      .getScriptProperties()
+      .deleteProperty(
+        propertyKey
+      );
+
+
+    return {
+
+      valid: false,
+
+      message:
+        'Data session rusak.'
+
+    };
+
+  }
+
+
+  // ==========================================
+  // CEK EXPIRED
+  // ==========================================
+
+  if (
+    !session.expiresAt ||
+    Date.now() >
+    Number(session.expiresAt)
+  ) {
+
+    PropertiesService
+      .getScriptProperties()
+      .deleteProperty(
+        propertyKey
+      );
+
+
+    return {
+
+      valid: false,
+
+      message:
+        'Session sudah berakhir. Silakan login kembali.'
+
+    };
+
+  }
+
+
+  return {
+
+    valid: true,
+
+    user: {
+
+      nip:
+        session.nip,
+
+      nama:
+        session.nama,
+
+      jabatan:
+        session.jabatan,
+
+      role:
+        session.role
+
+    }
+
+  };
+
+}
+
+
+// =====================================================
+// HAPUS SESSION / LOGOUT
+// =====================================================
+
+function hapusSessionToken(token) {
+
+  if (!token) return;
+
+
+  const tokenKey =
+    hashSessionToken(token);
+
+
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty(
+
+      'DIGI_SESSION_' +
+      tokenKey
+
+    );
+
+}
+
+
+// =====================================================
+// HASH SESSION TOKEN
+// =====================================================
+
+function hashSessionToken(token) {
+
+  const rawHash =
+    Utilities.computeDigest(
+
+      Utilities.DigestAlgorithm.SHA_256,
+
+      String(token)
+
+    );
+
+
+  let result = '';
+
+
+  for (
+    let i = 0;
+    i < rawHash.length;
+    i++
+  ) {
+
+    const value =
+      rawHash[i] < 0
+        ? rawHash[i] + 256
+        : rawHash[i];
+
+
+    const hex =
+      value.toString(16);
+
+
+    result +=
+      hex.length === 1
+        ? '0' + hex
+        : hex;
+
+  }
+
+
+  return result;
+
+}
+
+
+// =====================================================
+// RESPONSE API
+// =====================================================
+
+function apiResponse(data) {
+
+  return ContentService
+
+    .createTextOutput(
+      JSON.stringify(data)
+    )
+
+    .setMimeType(
+      ContentService.MimeType.JSON
+    );
+
+}
+3. Jadi struktur akhirnya seperti ini
+
+Yang penting urutan konsepnya:
+
+Code.gs
+│
+├── SPREADSHEET_ID
+├── FONNTE_TOKEN
+│
+├── doGet()
+│
+├── getSpreadsheet()
+│
+├── setupDatabase()
+│
+├── Authentication lama
+│   ├── hashPassword()
+│   ├── loginUser()
+│   └── updatePassword()
+│
+├── Fungsi Anggota
+│   ├── submitPeminjaman()
+│   ├── getKartuSaya()
+│   └── ...
+│
+├── Fungsi Admin
+│   ├── getDashboardAdmin()
+│   ├── getDaftarPinjam()
+│   └── ...
+│
+├── Fungsi Arsip
+│   ├── getPilihanNamaArsip()
+│   ├── tambahArsip()
+│   ├── hapusArsip()
+│   └── ...
+│
+├── doPost()             ← API GATEWAY BARU
+│
+├── buatSessionToken()
+├── validasiSessionToken()
+├── hapusSessionToken()
+├── hashSessionToken()
+└── apiResponse()
+
+Tidak perlu membuat function getProfile() terpisah. getProfile sudah ditangani langsung oleh doPost().
+
+4. Kenapa versi ini menyelesaikan masalah GET PROFILE?
+
+Sekarang alurnya:
+
+GitHub Pages
+     │
+     │ POST
+     ▼
+Apps Script doPost(e)
+     │
+     ├── action = login
+     │       ↓
+     │   loginUser()
+     │       ↓
+     │   buatSessionToken()
+     │
+     ├── action = checkSession
+     │       ↓
+     │   validasiSessionToken()
+     │
+     ├── action = getProfile
+     │       ↓
+     │   validasiSessionToken()
+     │       ↓
+     │   kirim user
+     │
+     └── action = logout
+             ↓
+         hapusSessionToken()
+
+Jadi request:
+
+{
+  action: "getProfile",
+  token: token
+}
+
+sekarang secara eksplisit dikenali oleh doPost().
+
+Respons suksesnya:
+
+{
+  "success": true,
+  "authenticated": true,
+  "user": {
+    "nip": "....",
+    "nama": "....",
+    "jabatan": "....",
+    "role": "...."
+  }
+}
+⚠️ Satu hal penting
+
+File Code.gs yang tersimpan di Library yang saya cek belum memuat doPost(), meskipun sebelumnya kita sudah berhasil mengetes Login/Session pada deployment terbaru. Jadi setelah menempel struktur di atas, jangan langsung tes GitHub Pages dulu.
+
+Urutannya:
+
+Simpan → Deploy → Manage deployments → Edit deployment → New version → Deploy
+
+Lalu kita tes:
+
+1. TEST VERSI
+2. LOGIN
+3. GET PROFILE
+4. CHECK SESSION
+5. LOGOUT
+
+Dengan begitu kita bisa memastikan deployment terbaru benar-benar memakai doPost() yang baru, bukan deployment lama.
+
+https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec
+
+buat tes baru dg link ini
+
+Siap. Saya sudah buat file tes baru yang seluruh request-nya diarahkan ke deployment baru yang kamu kasih.
+
+🧪 Test API Deployment Baru
+
+Di dalamnya ada tombol:
+
+🧪 TEST VERSI
+🔑 LOGIN + TOKEN
+👤 GET PROFILE
+🔎 CHECK SESSION
+🚪 LOGOUT
+
+API yang dipakai hanya deployment baru:
+
+https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec
+
+Saya juga sudah buat supaya token disimpan di localStorage, jadi alurnya bisa langsung:
+
+TEST VERSI → LOGIN → GET PROFILE → CHECK SESSION → LOGOUT
+
+Catatan: saya tidak bisa memverifikasi respons deployment tersebut langsung dari web tool karena endpoint Apps Script tidak bisa di-fetch dari sana.
+
+Coba klik TEST VERSI dulu. Kalau hasilnya muncul, kirim hasilnya ke saya. Dari situ kita lanjut cek GET PROFILE. 
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DIGI-ARTIK - Test Profile API</title>
+<title>DIGI-ARTIK API Test - Deployment Baru</title>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f9;padding:24px}
-.card{max-width:700px;margin:30px auto;background:#fff;padding:24px;border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.08)}
+.card{max-width:760px;margin:30px auto;background:#fff;padding:24px;border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.08)}
 h2{margin-top:0}
+label{display:block;margin-top:12px;font-weight:600}
 input{width:100%;box-sizing:border-box;padding:12px;margin:6px 0 12px;border:1px solid #ccd3da;border-radius:9px}
 button{padding:11px 15px;margin:5px 5px 5px 0;border:0;border-radius:9px;background:#0d6efd;color:#fff;cursor:pointer}
 button.secondary{background:#6c757d}
-pre{background:#f7f8fa;padding:15px;border-radius:10px;white-space:pre-wrap;word-break:break-word}
-.status{font-size:13px;color:#666;margin-bottom:16px}
+button.success{background:#198754}
+button.danger{background:#dc3545}
+pre{background:#f7f8fa;padding:15px;border-radius:10px;white-space:pre-wrap;word-break:break-word;min-height:120px}
+.status{font-size:13px;color:#666;margin-bottom:16px;word-break:break-all}
+.token{font-size:12px;color:#555;word-break:break-all;margin-top:10px}
 </style>
 </head>
 <body>
 <div class="card">
-  <h2>👤 DIGI-ARTIK PROFILE API TEST</h2>
+  <h2>🔌 DIGI-ARTIK API TEST</h2>
+
   <div class="status">
-    API aktif:<br>https://script.google.com/macros/s/AKfycbxogSuxCyoug_utx-haU7LfnFMY62cdxLxSbDpNYyG0Of71mqUfYGvs4wJQZ64gicX21w/exec
+    <b>Deployment yang diuji:</b><br>
+    https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec
   </div>
 
   <label>NIP</label>
-  <input id="nip" placeholder="Masukkan NIP">
+  <input id="nip" placeholder="Masukkan NIP" autocomplete="username">
 
   <label>Password</label>
-  <input id="password" type="password" placeholder="Masukkan password">
+  <input id="password" type="password" placeholder="Masukkan password" autocomplete="current-password">
 
-  <button onclick="login()">🔑 LOGIN</button>
-  <button class="secondary" onclick="getProfile()">👤 GET PROFILE</button>
-  <button class="secondary" onclick="checkSession()">🔎 CHECK SESSION</button>
-  <button class="secondary" onclick="logout()">🚪 LOGOUT</button>
+  <div>
+    <button onclick="testVersi()">🧪 TEST VERSI</button>
+    <button onclick="login()">🔑 LOGIN + TOKEN</button>
+    <button class="secondary" onclick="getProfile()">👤 GET PROFILE</button>
+    <button class="secondary" onclick="checkSession()">🔎 CHECK SESSION</button>
+    <button class="danger" onclick="logout()">🚪 LOGOUT</button>
+  </div>
 
+  <div class="token" id="tokenInfo">Token: belum ada</div>
   <pre id="hasil">Belum ada hasil...</pre>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxogSuxCyoug_utx-haU7LfnFMY62cdxLxSbDpNYyG0Of71mqUfYGvs4wJQZ64gicX21w/exec";
+const API_URL = 'https://script.google.com/macros/s/AKfycbxjILHuib7msrtWw32gnsORc_gRWU5VRBoISFoqc9b2kYPHzSHIRzjfqzH9HSA1FySrxQ/exec';
 let token = localStorage.getItem("DIGI_ARTIK_TOKEN") || "";
+
+function tampilToken() {
+  document.getElementById("tokenInfo").textContent =
+    token ? "Token tersimpan: " + token.substring(0, 20) + "..." : "Token: belum ada";
+}
+
+tampilToken();
 
 async function api(body) {
   const response = await fetch(API_URL, {
@@ -54,7 +1262,22 @@ async function api(body) {
   try {
     return JSON.parse(raw);
   } catch (e) {
-    throw new Error("Respons API bukan JSON. HTTP " + response.status + ": " + raw.substring(0, 500));
+    throw new Error(
+      "Respons API bukan JSON. HTTP " +
+      response.status + ": " +
+      raw.substring(0, 500)
+    );
+  }
+}
+
+async function testVersi() {
+  const hasil = document.getElementById("hasil");
+  try {
+    hasil.textContent = "⏳ Menguji deployment...";
+    const data = await api({ action: "versi" });
+    hasil.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    hasil.textContent = "❌ TEST VERSI ERROR\n\n" + e.message;
   }
 }
 
@@ -71,6 +1294,7 @@ async function login() {
     if (data.success && data.token) {
       token = data.token;
       localStorage.setItem("DIGI_ARTIK_TOKEN", token);
+      tampilToken();
     }
 
     hasil.textContent = JSON.stringify(data, null, 2);
@@ -93,7 +1317,6 @@ async function getProfile() {
       action: "getProfile",
       token: token
     });
-
     hasil.textContent = JSON.stringify(data, null, 2);
   } catch (e) {
     hasil.textContent = "❌ GET PROFILE ERROR\n\n" + e.message;
@@ -114,7 +1337,6 @@ async function checkSession() {
       action: "checkSession",
       token: token
     });
-
     hasil.textContent = JSON.stringify(data, null, 2);
   } catch (e) {
     hasil.textContent = "❌ CHECK SESSION ERROR\n\n" + e.message;
@@ -138,6 +1360,7 @@ async function logout() {
 
     token = "";
     localStorage.removeItem("DIGI_ARTIK_TOKEN");
+    tampilToken();
 
     hasil.textContent = JSON.stringify(data, null, 2);
   } catch (e) {
